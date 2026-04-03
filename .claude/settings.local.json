@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:generativelanguage.googleapis.com)",
+      "Bash(node -e \"const l = require\\('./node_modules/lucide-react'\\); console.log\\(['Home','BookOpen','Crosshair','Brain'].map\\(k => k + ': ' + \\(k in l ? 'OK' : 'MISSING'\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}
