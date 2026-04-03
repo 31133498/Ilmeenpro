@@ -403,7 +403,7 @@ export default function LandingPage({ onEnterApp }: Props) {
 
       <footer className="lp-footer">
         <div className="lp-footer-logo">إلمين</div>
-        <span className="lp-footer-text">© 2025 Ilmeen. All rights reserved.</span>
+        <span className="lp-footer-text">© 2025 Ilmeen. Built with ❤️ for Arabic learners.</span>
         <div className="lp-footer-links">
           <a href="#">Privacy</a>
           <a href="#">Terms</a>
