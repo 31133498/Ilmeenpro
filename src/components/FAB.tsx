@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { Play, Square, Loader } from 'lucide-react'
 import speakArabic from '../services/tts'
-
-// On mobile the bottom nav bar is ~72 px; lift the FAB above it.
-const isMobile = () => window.innerWidth < 768
 
 interface Props {
   diacritized: string
@@ -29,8 +27,8 @@ export default function FAB({ diacritized }: Props) {
     setLoading(true)
 
     try {
-      const source = await speakArabic(diacritized)
-      sourceRef.current = source
+      const result = await speakArabic(diacritized)
+      sourceRef.current = result.source
       setLoading(false)
 
       const totalWords = diacritized.split(/\s+/).filter(Boolean).length
@@ -46,7 +44,7 @@ export default function FAB({ diacritized }: Props) {
       }
       rafRef.current = requestAnimationFrame(tick)
 
-      source.onended = () => { stopRing(); sourceRef.current = null }
+      result.source.onended = () => { stopRing(); sourceRef.current = null }
     } catch (e) {
       setLoading(false)
       console.error('FAB TTS error:', e)
@@ -69,7 +67,7 @@ export default function FAB({ diacritized }: Props) {
       onClick={isPlaying ? stop : play}
       aria-label={isPlaying ? 'Stop' : 'Play full text'}
       style={{
-        position: 'fixed', bottom: isMobile() ? 88 : 24, right: 24, zIndex: 500,
+        position: 'fixed', bottom: 80, right: 24, zIndex: 500,
         width: 56, height: 56, borderRadius: '50%',
         background: '#C9A84C', border: 'none', cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -91,8 +89,10 @@ export default function FAB({ diacritized }: Props) {
         />
       </svg>
       {loading
-        ? <span style={{ width: 18, height: 18, border: '2px solid #1A1611', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
-        : <span style={{ color: '#1A1611', fontSize: 20, lineHeight: 1 }}>{isPlaying ? '■' : '▶'}</span>
+        ? <Loader size={20} color="#1A1611" style={{ animation: 'spin 0.7s linear infinite' }} />
+        : isPlaying
+          ? <Square size={18} color="#1A1611" fill="#1A1611" />
+          : <Play size={18} color="#1A1611" fill="#1A1611" />
       }
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </button>

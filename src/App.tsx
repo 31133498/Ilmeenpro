@@ -1,34 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Home, BookOpen, Crosshair, Brain, ChevronLeft } from 'lucide-react'
-import { useNavigation } from './contexts/NavigationContext.tsx'
-import speakArabic from './services/tts'
+import { Home, BookOpen, Crosshair, Brain } from 'lucide-react'
 import ImageUploader from './components/ImageUploader'
 import TextViewer from './components/TextViewer'
 import FAB from './components/FAB'
 import QuizMode from './components/QuizMode'
 import SessionsScreen from './components/SessionsScreen'
 import LandingPage from './components/LandingPage'
-import { extractArabicText } from './services/ocr'
+import { extractArabicText } from './services/gemini'
 import { translateWords } from './services/translate'
 import { buildSession, saveSession, type Session } from './services/storage'
 
-
-
 type Stage = 'idle' | 'ocr' | 'translating' | 'done' | 'error'
-type ContentType = 'poem' | 'prose' | 'table' | 'list' | 'mixed'
-
+type AppScreen = 'main' | 'sessions' | 'quiz'
 
 export default function App() {
   const [showLanding, setShowLanding] = useState(true)
   const [stage, setStage] = useState<Stage>('idle')
   const [session, setSession] = useState<Session | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [screen, setScreen] = useState<Screen>('main')
+  const [screen, setScreen] = useState<AppScreen>('main')
   const [focusMode, setFocusMode] = useState(false)
   const [focusLine, setFocusLine] = useState(0)
-  const [imageFile, setImageFile] = useState<File | null>(null)
 
-  // Show landing page on first load; skip it once user enters the app
   if (showLanding) {
     return <LandingPage onEnterApp={() => setShowLanding(false)} />
   }
@@ -36,28 +29,18 @@ export default function App() {
   const handleFile = async (file: File) => {
     setError(null)
     setSession(null)
-    setImageFile(file)
     setFocusMode(false)
     setScreen('main')
 
     try {
-      // Step 1: OCR + diacritics
       setStage('ocr')
       const ocr = await extractArabicText(file)
 
-      // Step 2: Batch word translation
       setStage('translating')
       const wordMap = await translateWords(ocr.diacritized)
 
-      // Step 3: Build + save session
-  const sess = await buildSession(ocr.raw, ocr.diacritized, wordMap, file)
-  const ttsResult = await speakArabic(ocr.diacritized)
-  const audioArrayBuffer = ttsResult.arrayBuffer
-  const audioBase64 = btoa(String.fromCharCode(...new Uint8Array(audioArrayBuffer)))
-  sess.audio = `data:audio/mpeg;base64,${audioBase64}`
-
-  saveSession(sess)
-
+      const sess = await buildSession(ocr.raw, ocr.diacritized, wordMap, file)
+      saveSession(sess)
       setSession(sess)
       setStage('done')
     } catch (err) {
@@ -77,7 +60,6 @@ export default function App() {
     setStage('idle')
     setSession(null)
     setError(null)
-    setImageFile(null)
     setFocusMode(false)
     setScreen('main')
   }
@@ -93,7 +75,6 @@ export default function App() {
       focusMode={focusMode}
       focusLine={focusLine}
       lines={lines}
-      imageFile={imageFile}
       setScreen={setScreen}
       setFocusMode={setFocusMode}
       setFocusLine={setFocusLine}
@@ -104,17 +85,15 @@ export default function App() {
   )
 }
 
-// ── Separate component so hooks always run (rules-of-hooks with early return) ─
 interface ShellProps {
   stage: Stage
   session: Session | null
   error: string | null
-  screen: Screen
+  screen: AppScreen
   focusMode: boolean
   focusLine: number
   lines: string[]
-  imageFile: File | null
-  setScreen: (s: Screen) => void
+  setScreen: (s: AppScreen) => void
   setFocusMode: React.Dispatch<React.SetStateAction<boolean>>
   setFocusLine: (n: number) => void
   handleFile: (f: File) => void
@@ -127,7 +106,6 @@ function AppShell({
   setScreen, setFocusMode, setFocusLine, handleFile, loadSession, reset,
 }: ShellProps) {
 
-  // Escape key exits focus mode
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && focusMode) setFocusMode(false) }
     window.addEventListener('keydown', onKey)
@@ -135,26 +113,10 @@ function AppShell({
   }, [focusMode])
 
   const bottomNavItems = [
-    {
-      label: 'Home',
-      icon: <Home size={20} strokeWidth={1.75} />,
-      action: () => { setScreen('main') },
-    },
-    {
-      label: 'Sessions',
-      icon: <BookOpen size={20} strokeWidth={1.75} />,
-      action: () => setScreen('sessions'),
-    },
-    {
-      label: 'Focus',
-      icon: <Crosshair size={20} strokeWidth={1.75} />,
-      action: () => setFocusMode(f => !f),
-    },
-    {
-      label: 'Quiz',
-      icon: <Brain size={20} strokeWidth={1.75} />,
-      action: () => stage === 'done' && setScreen('quiz'),
-    },
+    { label: 'Home', icon: <Home size={20} strokeWidth={1.75} />, action: () => setScreen('main') },
+    { label: 'Sessions', icon: <BookOpen size={20} strokeWidth={1.75} />, action: () => setScreen('sessions') },
+    { label: 'Focus', icon: <Crosshair size={20} strokeWidth={1.75} />, action: () => setFocusMode(f => !f) },
+    { label: 'Quiz', icon: <Brain size={20} strokeWidth={1.75} />, action: () => stage === 'done' && setScreen('quiz') },
   ]
 
   return (
@@ -212,7 +174,6 @@ function AppShell({
 
       <main style={{ paddingTop: 80, paddingBottom: 100, paddingLeft: 16, paddingRight: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
 
-        {/* Hero + uploader */}
         {stage === 'idle' && (
           <>
             <div style={{ textAlign: 'center', marginTop: 48, marginBottom: 8 }}>
@@ -226,7 +187,6 @@ function AppShell({
           </>
         )}
 
-        {/* Loading states */}
         {(stage === 'ocr' || stage === 'translating') && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, marginTop: 80 }}>
             <div style={{ width: 48, height: 48, borderRadius: '50%', border: '2px solid #C9A84C', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
@@ -240,7 +200,6 @@ function AppShell({
           </div>
         )}
 
-        {/* Error */}
         {stage === 'error' && error && (
           <div style={{ maxWidth: 480, width: '100%', background: '#fff5f5', border: '1px solid #fed7d7', borderRadius: 16, padding: 24, textAlign: 'center' }}>
             <p style={{ color: '#c53030', fontWeight: 500, marginBottom: 8 }}>Something went wrong · حدث خطأ</p>
@@ -252,10 +211,8 @@ function AppShell({
           </div>
         )}
 
-        {/* Session loaded */}
         {stage === 'done' && session && (
           <div style={{ width: '100%', maxWidth: 720 }}>
-            {/* Raw text */}
             <div style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(201,168,76,0.15)', borderRadius: 16, padding: '16px 20px', marginBottom: 16 }}>
               <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '2px', textTransform: 'uppercase', color: '#7A6E62', marginBottom: 10 }}>Extracted · النص المستخرج</p>
               <div dir="rtl">
@@ -267,17 +224,12 @@ function AppShell({
               </div>
             </div>
 
-            {/* Diacritized + interactive */}
             <div style={{ background: '#fff', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 16, padding: '16px 20px', boxShadow: '0 2px 16px rgba(26,22,17,0.06)' }}>
               <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '2px', textTransform: 'uppercase', color: '#C9A84C', marginBottom: 10 }}>
                 With tashkeel · مع التشكيل
                 {focusMode && <span style={{ marginLeft: 12, color: '#7A6E62', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>Line {focusLine + 1} of {lines.length}</span>}
               </p>
-              <TextViewer
-                session={session}
-                focusMode={focusMode}
-                onFocusLineChange={setFocusLine}
-              />
+              <TextViewer session={session} focusMode={focusMode} onFocusLineChange={setFocusLine} />
             </div>
 
             <button
@@ -290,27 +242,18 @@ function AppShell({
         )}
       </main>
 
-      {/* FAB — full text playback */}
       {stage === 'done' && session && <FAB diacritized={session.diacritized} />}
 
-      {/* Overlay screens */}
-      {screen === 'sessions' && (
-        <SessionsScreen onLoad={loadSession} onClose={() => setScreen('main')} />
-      )}
-      {screen === 'quiz' && session && (
-        <QuizMode diacritized={session.diacritized} onClose={() => setScreen('main')} />
-      )}
+      {screen === 'sessions' && <SessionsScreen onLoad={loadSession} onClose={() => setScreen('main')} />}
+      {screen === 'quiz' && session && <QuizMode diacritized={session.diacritized} onClose={() => setScreen('main')} />}
 
       {/* Mobile bottom nav */}
-      <div
-        style={{
-          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90,
-          display: 'flex', background: 'rgba(253,251,247,0.95)', backdropFilter: 'blur(16px)',
-          borderTop: '1px solid rgba(201,168,76,0.12)',
-          padding: '8px 0 env(safe-area-inset-bottom)',
-        }}
-        className="md:hidden"
-      >
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 90,
+        display: 'flex', background: 'rgba(253,251,247,0.95)', backdropFilter: 'blur(16px)',
+        borderTop: '1px solid rgba(201,168,76,0.12)',
+        padding: '8px 0',
+      }}>
         {bottomNavItems.map(item => (
           <button
             key={item.label}
@@ -319,8 +262,7 @@ function AppShell({
               flex: 1, minHeight: 56,
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               justifyContent: 'center', gap: 4,
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#7A6E62',
+              background: 'none', border: 'none', cursor: 'pointer', color: '#7A6E62',
             }}
           >
             {item.icon}
