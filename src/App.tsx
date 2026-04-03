@@ -6,7 +6,8 @@ import FAB from './components/FAB'
 import QuizMode from './components/QuizMode'
 import SessionsScreen from './components/SessionsScreen'
 import LandingPage from './components/LandingPage'
-import { extractArabicText } from './services/gemini'
+import { extractArabicText } from './services/openai'
+
 import { translateWords } from './services/translate'
 import { buildSession, saveSession, type Session } from './services/storage'
 
